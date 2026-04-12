@@ -104,3 +104,8 @@ void AFisheyeCameraBase::UpdateMaterialParameters()
 
     FisheyeMaterialInstance->SetScalarParameterValue(FName("MaxDepth"), CaptureComponent->MaxViewDistanceOverride);
 }
+
+UMaterialInterface* AFisheyeCameraBase::GetCameraMaterial_Implementation()
+{
+    return FisheyeMaterialInstance;
+}

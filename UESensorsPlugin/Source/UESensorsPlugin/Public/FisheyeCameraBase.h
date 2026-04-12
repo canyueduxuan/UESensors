@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Components/SceneCaptureComponentCube.h"
 #include "Engine/TextureRenderTargetCube.h"
+#include "TextureVisualizeInterface.h"
 #include "FisheyeCameraBase.generated.h"
 
 UENUM(BlueprintType)
@@ -19,7 +20,7 @@ enum class EFisheyeModel : uint8
 };
 
 UCLASS()
-class UESENSORSPLUGIN_API AFisheyeCameraBase : public AActor
+class UESENSORSPLUGIN_API AFisheyeCameraBase : public AActor, public ITextureVisualizeInterface
 {
 	GENERATED_BODY()
 	
@@ -30,6 +31,7 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual UMaterialInterface* GetCameraMaterial_Implementation() override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Fisheye")
     USceneCaptureComponentCube* CaptureComponent;
