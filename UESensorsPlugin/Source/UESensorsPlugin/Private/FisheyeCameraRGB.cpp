@@ -5,6 +5,8 @@
 
 AFisheyeCameraRGB::AFisheyeCameraRGB()
 {
+    CaptureComponent->MaxViewDistanceOverride = 10000.0f;
+
     static FSoftObjectPath MaterialPath(TEXT("/UESensorsPlugin/CameraSensors/Materials/M_FisheyeRGB.M_FisheyeRGB"));
     static ConstructorHelpers::FObjectFinder<UMaterialInterface> MaterialFinder(*MaterialPath.ToString());
 

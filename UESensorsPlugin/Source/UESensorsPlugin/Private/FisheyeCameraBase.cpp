@@ -2,7 +2,10 @@
 
 
 #include "FisheyeCameraBase.h"
-
+#include "Kismet/KismetRenderingLibrary.h"
+#include "Engine/Canvas.h"
+#include "CanvasItem.h"
+#include "ImageUtils.h"
 // Sets default values
 AFisheyeCameraBase::AFisheyeCameraBase()
 {
@@ -108,4 +111,70 @@ void AFisheyeCameraBase::UpdateMaterialParameters()
 UMaterialInterface* AFisheyeCameraBase::GetCameraMaterial_Implementation()
 {
     return FisheyeMaterialInstance;
+}
+
+void AFisheyeCameraBase::SaveFisheyeImageToDisk(const FString& FilePath)
+{
+    if (!FisheyeMaterialInstance)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("FisheyeMaterialInstance is null. Cannot save image."));
+        return;
+    }
+
+    if (!RenderTarget2D)
+    {
+        RenderTarget2D = NewObject<UTextureRenderTarget2D>(this);
+        RenderTarget2D->InitCustomFormat(resolution_x, resolution_y, PF_B8G8R8A8, false);
+        RenderTarget2D->UpdateResource();
+    }
+
+    UKismetRenderingLibrary::ClearRenderTarget2D(GetWorld(), RenderTarget2D, FLinearColor::Black);
+
+    UCanvas* Canvas = nullptr;
+    FVector2D Size;
+    FDrawToRenderTargetContext Context;
+
+    UKismetRenderingLibrary::BeginDrawCanvasToRenderTarget(GetWorld(), RenderTarget2D, Canvas, Size, Context);
+
+    if (Canvas && FisheyeMaterialInstance)
+    {
+        FCanvasTileItem TileItem(FVector2D(0.f, 0.f), FisheyeMaterialInstance->GetRenderProxy(), Size);
+        TileItem.BlendMode = SE_BLEND_Opaque; // 强行使用不透明渲染，填充 Alpha 通道
+        Canvas->DrawItem(TileItem);
+    }
+
+     UKismetRenderingLibrary::EndDrawCanvasToRenderTarget(GetWorld(), Context);
+
+     FlushRenderingCommands();
+
+     FTextureRenderTargetResource* RTResource = RenderTarget2D->GameThread_GetRenderTargetResource();
+    if (!RTResource)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to get RenderTargetResource."));
+        return;
+    }
+
+    TArray<FColor> OutPixels;
+    if (!RTResource->ReadPixels(OutPixels))
+    {
+        UE_LOG(LogTemp, Error, TEXT("ReadPixels failed! Can't read GPU texture data."));
+        return;
+    }
+
+    for (FColor& Pixel : OutPixels)
+    {
+        Pixel.A = 255; 
+    }
+
+    TArray<uint8> CompressedPngData;
+    FImageUtils::CompressImageArray(resolution_x, resolution_y, OutPixels, CompressedPngData);
+
+    if (FFileHelper::SaveArrayToFile(CompressedPngData, *FilePath))
+    {
+        UE_LOG(LogTemp, Log, TEXT("Successfully generated and saved standard PNG: %s"), *FilePath);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to save PNG file to disk. Check path permissions: %s"), *FilePath);
+    }
 }

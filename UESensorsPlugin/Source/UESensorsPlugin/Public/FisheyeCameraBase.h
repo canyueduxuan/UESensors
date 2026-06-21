@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Components/SceneCaptureComponentCube.h"
 #include "Engine/TextureRenderTargetCube.h"
+#include "Engine/TextureRenderTarget2D.h"
 #include "TextureVisualizeInterface.h"
 #include "FisheyeCameraBase.generated.h"
 
@@ -38,6 +39,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fisheye")
     UTextureRenderTargetCube* RenderTargetCube;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Fisheye")
+	UTextureRenderTarget2D* RenderTarget2D;	
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fisheye")
     UMaterialInterface* FisheyeMaterialBase;
@@ -103,4 +107,6 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Fisheye")
     void UpdateMaterialParameters();
 
+	UFUNCTION(BlueprintCallable, Category = "Fisheye")
+	void SaveFisheyeImageToDisk(const FString& FilePath);
 };
