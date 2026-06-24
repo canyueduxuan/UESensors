@@ -22,6 +22,9 @@ protected:
 	virtual void OnConstruction(const FTransform& Transform) override;
 
 public:	
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scanning Settings")
+    TArray<AActor*> ActorsToIgnore;
+    
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Voxel Scanner")
     float Length = 2000.f; // X轴 扫描总长度 (单位: 厘米)
 

@@ -85,6 +85,11 @@ void APointCloudGenerator::ProcessVoxelChunk()
     FCollisionQueryParams QueryParams;
     QueryParams.AddIgnoredActor(this); // 忽略自身
     
+    if (ActorsToIgnore.Num() > 0)
+    {
+        QueryParams.AddIgnoredActors(ActorsToIgnore);
+    }
+
     // 1. 核心算法：创建与分辨率匹配的 3D 体素 Shape 
     FCollisionShape VoxelShape = FCollisionShape::MakeBox(FVector(VoxelResolution * 0.5f));
 
