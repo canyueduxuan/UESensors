@@ -57,68 +57,68 @@ UMaterialInterface* APinholeCameraRGB::GetCameraMaterial_Implementation()
     return MaterialInstance;
 }
 
-void APinholeCameraRGB::SavePinholeImageToDisk(const FString& FilePath)
+void APinholeCameraRGB::SavePinholeImageToDisk(FString FilePath)
 {
-	if (!MaterialInstance)
+    if (!CaptureComponent || !RenderTarget2D || !MaterialInstance)
     {
-        UE_LOG(LogTemp, Warning, TEXT("MaterialInstance is null. Cannot save image."));
+        UE_LOG(LogTemp, Warning, TEXT("Resources not ready for saving."));
         return;
     }
-
+ 
+    // --- 关键点 1: 强制更新场景捕捉 ---
+    CaptureComponent->CaptureScene(); // 立即捕捉当前画面到 RenderTarget2D
+ 
+    // --- 关键点 2: 确保渲染完成 ---
+    // 强制渲染线程完成捕捉任务
+    FlushRenderingCommands();
+ 
     if (!RenderTarget2DSave)
-	{
-		RenderTarget2DSave = NewObject<UTextureRenderTarget2D>(this);
-		RenderTarget2DSave->InitCustomFormat(resolution_x, resolution_y, PF_B8G8R8A8, false);
-		RenderTarget2DSave->UpdateResource();
-	}
-
-    UKismetRenderingLibrary::ClearRenderTarget2D(GetWorld(), RenderTarget2DSave, FLinearColor::Black);
-
+    {
+        RenderTarget2DSave = NewObject<UTextureRenderTarget2D>(this);
+        RenderTarget2DSave->InitCustomFormat(resolution_x, resolution_y, PF_B8G8R8A8, false);
+    }
+    // 每次更新尺寸（如果可能变动）
+    RenderTarget2DSave->UpdateResource();
+ 
+    // 绘制到中间 RT (应用材质，如你的 Pinhole 畸变)
+    FDrawToRenderTargetContext Context;
     UCanvas* Canvas = nullptr;
     FVector2D Size;
-    FDrawToRenderTargetContext Context;
-
     UKismetRenderingLibrary::BeginDrawCanvasToRenderTarget(GetWorld(), RenderTarget2DSave, Canvas, Size, Context);
-
-    if (Canvas && MaterialInstance)
+    if (Canvas)
     {
+        // 确保材质参数已链接到最新的 RenderTarget2D
+        MaterialInstance->SetTextureParameterValue(FName("Param2D"), RenderTarget2D);
         FCanvasTileItem TileItem(FVector2D(0.f, 0.f), MaterialInstance->GetRenderProxy(), Size);
-        TileItem.BlendMode = SE_BLEND_Opaque; // 强行使用不透明渲染，填充 Alpha 通道
+        TileItem.BlendMode = SE_BLEND_Opaque;
         Canvas->DrawItem(TileItem);
     }
-
-     UKismetRenderingLibrary::EndDrawCanvasToRenderTarget(GetWorld(), Context);
-
-     FlushRenderingCommands();
-
-     FTextureRenderTargetResource* RTResource = RenderTarget2DSave->GameThread_GetRenderTargetResource();
-    if (!RTResource)
-    {
-        UE_LOG(LogTemp, Error, TEXT("Failed to get RenderTargetResource."));
-        return;
-    }
-
+    UKismetRenderingLibrary::EndDrawCanvasToRenderTarget(GetWorld(), Context);
+ 
+    // 再次刷新，确保 Canvas 绘制完成
+    FlushRenderingCommands();
+ 
+    // --- 关键点 3: 读取像素并保存 ---
+    FTextureRenderTargetResource* RTResource = RenderTarget2DSave->GameThread_GetRenderTargetResource();
     TArray<FColor> OutPixels;
-    if (!RTResource->ReadPixels(OutPixels))
+    if (RTResource && RTResource->ReadPixels(OutPixels))
     {
-        UE_LOG(LogTemp, Error, TEXT("ReadPixels failed! Can't read GPU texture data."));
-        return;
-    }
-
-    for (FColor& Pixel : OutPixels)
-    {
-        Pixel.A = 255; 
-    }
-
-    TArray<uint8> CompressedPngData;
-    FImageUtils::CompressImageArray(resolution_x, resolution_y, OutPixels, CompressedPngData);
-
-    if (FFileHelper::SaveArrayToFile(CompressedPngData, *FilePath))
-    {
-        UE_LOG(LogTemp, Log, TEXT("Successfully generated and saved standard PNG: %s"), *FilePath);
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("Failed to save PNG file to disk. Check path permissions: %s"), *FilePath);
+        // 修正 Alpha 通道
+        for (FColor& Pixel : OutPixels) { Pixel.A = 255; }
+ 
+        // --- 关键点 4: 自动生成唯一文件名 (防止重复保存同一个文件名) ---
+        if (FilePath.IsEmpty() || FPaths::FileExists(FilePath))
+        {
+            FString Directory = FPaths::ProjectSavedDir() / TEXT("Captures/");
+            IFileManager::Get().MakeDirectory(*Directory);
+            FilePath = Directory + TEXT("Img_") + FDateTime::Now().ToString() + TEXT(".png");
+        }
+ 
+        TArray<uint8> CompressedPngData;
+        FImageUtils::CompressImageArray(resolution_x, resolution_y, OutPixels, CompressedPngData);
+        if (FFileHelper::SaveArrayToFile(CompressedPngData, *FilePath))
+        {
+            UE_LOG(LogTemp, Log, TEXT("Saved Unique Image: %s"), *FilePath);
+        }
     }
 }

@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "TextureVisualizeInterface.h"
 #include "PinholeCameraRGB.generated.h"
 
 UCLASS()
@@ -17,13 +18,13 @@ public:
 	// Sets default values for this actor's properties
 	APinholeCameraRGB();
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Pinhole")
+    USceneCaptureComponent2D* CaptureComponent;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	virtual UMaterialInterface* GetCameraMaterial_Implementation() override;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Pinhole")
-    USceneCaptureComponent2D* CaptureComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Pinhole")
 	UTextureRenderTarget2D* RenderTarget2D;
@@ -47,6 +48,6 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Pinhole")
-	void SavePinholeImageToDisk(const FString& FilePath);
+	void SavePinholeImageToDisk(FString FilePath);
 
 };

@@ -107,7 +107,7 @@ void APointCloudGenerator::ProcessVoxelChunk()
 
         // 3. 执行三维体素重叠检测 (Overlap 性能明显优于带有各种物理计算的 Sweep)
         // 使用 ECC_Visibility（或者根据需要改成 ECC_WorldStatic）
-        bool bHasOverlap = World->OverlapAnyTestByChannel(VoxelCenter, FQuat::Identity, ECC_Visibility, VoxelShape, QueryParams);
+        bool bHasOverlap = World->OverlapAnyTestByChannel(VoxelCenter, FQuat::Identity, TraceChannel, VoxelShape, QueryParams);
 
         if (bHasOverlap)
         {
