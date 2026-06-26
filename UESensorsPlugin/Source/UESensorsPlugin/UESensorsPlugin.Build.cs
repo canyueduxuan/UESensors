@@ -40,6 +40,7 @@ public class UESensorsPlugin : ModuleRules
 				"Slate",
 				"SlateCore",
 				"RenderCore",
+				"ImageWrapper",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
