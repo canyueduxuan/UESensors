@@ -3,6 +3,10 @@
 
 #include "PinholeCameraRGB.h"
 #include "Kismet/KismetRenderingLibrary.h"
+#include "IImageWrapper.h"
+#include "IImageWrapperModule.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/FileHelper.h"
 
 // Sets default values
 APinholeCameraRGB::APinholeCameraRGB()
@@ -105,20 +109,32 @@ void APinholeCameraRGB::SavePinholeImageToDisk(FString FilePath)
     {
         // 修正 Alpha 通道
         for (FColor& Pixel : OutPixels) { Pixel.A = 255; }
+
+        IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
+        TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
  
-        // --- 关键点 4: 自动生成唯一文件名 (防止重复保存同一个文件名) ---
-        if (FilePath.IsEmpty() || FPaths::FileExists(FilePath))
+        if (ImageWrapper.IsValid() && ImageWrapper->SetRaw(OutPixels.GetData(), OutPixels.GetAllocatedSize(), resolution_x, resolution_y, ERGBFormat::BGRA, 8))
         {
-            FString Directory = FPaths::ProjectSavedDir() / TEXT("Captures/");
-            IFileManager::Get().MakeDirectory(*Directory);
-            FilePath = Directory + TEXT("Img_") + FDateTime::Now().ToString() + TEXT(".png");
-        }
+            // Get the compressed data (this includes the correct PNG headers)
+            const TArray64<uint8>& PNGData = ImageWrapper->GetCompressed();
  
-        TArray<uint8> CompressedPngData;
-        FImageUtils::CompressImageArray(resolution_x, resolution_y, OutPixels, CompressedPngData);
-        if (FFileHelper::SaveArrayToFile(CompressedPngData, *FilePath))
-        {
-            UE_LOG(LogTemp, Log, TEXT("Saved Unique Image: %s"), *FilePath);
+            // 6. Handle File Path
+            if (FilePath.IsEmpty())
+            {
+                FString Directory = FPaths::ProjectSavedDir() / TEXT("Captures/");
+                IFileManager::Get().MakeDirectory(*Directory);
+                FilePath = Directory + TEXT("Img_") + FDateTime::Now().ToString() + TEXT(".png");
+            }
+ 
+            // 7. Save to Disk
+            if (FFileHelper::SaveArrayToFile(PNGData, *FilePath))
+            {
+                UE_LOG(LogTemp, Log, TEXT("Saved valid PNG: %s"), *FilePath);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Error, TEXT("Failed to save PNG to: %s"), *FilePath);
+            }
         }
     }
 }

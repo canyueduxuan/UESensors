@@ -30,8 +30,8 @@ void APointCloud2DGenerator::StartExport()
 	FVector Center = ScanArea->GetComponentLocation();
 	float ResInCm = Resolution * 100.f;
  
-	GridWidth = FMath::CeilToInt((Extent.X * 2.f) / ResInCm) + 1;
-	GridHeight = FMath::CeilToInt((Extent.Y * 2.f) / ResInCm) + 1;
+	GridWidth = FMath::CeilToInt((Extent.X * 2.f) / ResInCm);
+	GridHeight = FMath::CeilToInt((Extent.Y * 2.f) / ResInCm);
  
 	if (GridWidth <= 0 || GridHeight <= 0) return;
  
@@ -112,13 +112,12 @@ void APointCloud2DGenerator::SaveResultToPNG()
 		// else Pixels[i] = GridData[i].bHasObstacle ? FColor::Red : FColor::White;
 	}
  
-	FString FilePath = FPaths::ProjectSavedDir() / TEXT("PointCloud_Scan.png");
 	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
 	TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
  
 	if (ImageWrapper.IsValid() && ImageWrapper->SetRaw(Pixels.GetData(), Pixels.GetAllocatedSize(), GridWidth, GridHeight, ERGBFormat::Gray, 8))
 	{
-		FFileHelper::SaveArrayToFile(ImageWrapper->GetCompressed(), *FilePath);
+		FFileHelper::SaveArrayToFile(ImageWrapper->GetCompressed(), *ExportFile);
 	}
 	CurrentState = EGeneratorState::Completed;
 }

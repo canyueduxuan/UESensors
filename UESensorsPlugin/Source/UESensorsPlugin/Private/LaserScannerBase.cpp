@@ -95,13 +95,16 @@ void ALaserScannerBase::OnTraceCompleted(const FTraceHandle& TraceHandle, FTrace
         const FHitResult& Hit = TraceDatum.OutHits[0];
         if (Hit.bBlockingHit && Hit.Distance >= minRange)
         {
-            // 将结果存入成员变量
-            ScanResults.Add(Hit.ImpactPoint);
 
             if (drawDebugPoint)
             {
                 DrawDebugPoint(GetWorld(), Hit.ImpactPoint, 4.0f, FColor::Red, false, 0.1f);
             }
+
+            FVector LocalPoint = GetActorTransform().InverseTransformPosition(Hit.ImpactPoint);
+
+            // 将结果存入成员变量
+            ScanResults.Add(LocalPoint);
         }
     }
     PendingTracesCount--;
@@ -141,12 +144,16 @@ TArray<FVector> ALaserScannerBase::SyncScanBlocking()
 
 		if (bHit && Hit.Distance >= minRange)
 		{
-			LocalSyncResults.Add(Hit.ImpactPoint);
 
 			if (drawDebugPoint)
 			{
 				DrawDebugPoint(GetWorld(), Hit.ImpactPoint, 4.0f, FColor::Blue, false, 0.1f);
 			}
+
+            FVector LocalPoint = GetActorTransform().InverseTransformPosition(Hit.ImpactPoint);
+
+            // 将结果存入成员变量
+            LocalSyncResults.Add(LocalPoint);
 		}
 	}
  

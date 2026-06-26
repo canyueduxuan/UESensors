@@ -55,9 +55,13 @@ protected:
 	EGeneratorState CurrentState = EGeneratorState::Idle;
  
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Generator")
+    FString ExportFile = TEXT("E:\\Unreal_Projetcts\\UESensors\\Saved\\Baking\\image.png");
 	/** 开启导出流程 */
 	UFUNCTION(BlueprintCallable, Category = "Generator")
 	void StartExport();
+	UFUNCTION(BlueprintCallable, Category = "Generator")
+	bool IsExporting() const { return CurrentState != EGeneratorState::Idle && CurrentState != EGeneratorState::Completed; }
  
 private:
 	/** 异步射线回调 */
