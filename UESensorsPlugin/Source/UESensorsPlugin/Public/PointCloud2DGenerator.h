@@ -15,6 +15,7 @@ enum class EGeneratorState : uint8
 	Exporting,      // 异步射线扫描中
 	Processing,     // 执行Overlap检测
 	SavingImage,    // 生成PNG
+	SavingLocalData, // 生成本地地图数据
 	Completed       // 已完成
 };
 
@@ -23,6 +24,21 @@ struct FScanCellData
 	FVector HitLocation;
 	bool bHasTerrain = false;
 	bool bHasObstacle = false;
+};
+
+USTRUCT(BlueprintType)
+struct FLocalMapParams
+{
+    GENERATED_BODY()
+ 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local Map")
+	float resolution = 0.125f; // 0.125m
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local Map")
+    float sideSize = 16.f; // 16m
+ 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local Map")
+    float forwardDistance = 32.f; // 32m
 };
 
 UCLASS()
@@ -38,6 +54,9 @@ protected:
  
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Generator")
 	TObjectPtr<UBoxComponent> ScanArea;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Generator")
+	bool bEnableLocalMap = true;
  
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Generator")
 	float Resolution = 0.2f; // 0.2m
@@ -53,6 +72,9 @@ protected:
  
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Generator")
 	EGeneratorState CurrentState = EGeneratorState::Idle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Generator")
+	FLocalMapParams LocalMapParams;
  
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Generator")
@@ -62,13 +84,18 @@ public:
 	void StartExport();
 	UFUNCTION(BlueprintCallable, Category = "Generator")
 	bool IsExporting() const { return CurrentState != EGeneratorState::Idle && CurrentState != EGeneratorState::Completed; }
- 
+	UFUNCTION(BlueprintCallable, Category = "Generator")
+	bool IsReadyToSaveLocalMap() const { return CurrentState == EGeneratorState::SavingLocalData; }
+	UFUNCTION(BlueprintCallable, Category = "Generator")
+	void SaveLocalDataToPNG(FVector QueryLocation, FRotator QueryRotation, FString LocalMapFilePath);
+
 private:
 	/** 异步射线回调 */
 	void OnTraceCompleted(const FTraceHandle& TraceHandle, FTraceDatum& TraceDatum);
 	void RunOverlapChecks();
 	void SaveResultToPNG();
  
+	TArray<uint8> CachedPixels;
 	TArray<FScanCellData> GridData;
 	int32 GridWidth = 0;
 	int32 GridHeight = 0;

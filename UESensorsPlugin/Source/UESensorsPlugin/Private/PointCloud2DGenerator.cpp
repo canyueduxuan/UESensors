@@ -102,22 +102,85 @@ void APointCloud2DGenerator::RunOverlapChecks()
 void APointCloud2DGenerator::SaveResultToPNG()
 {
 	CurrentState = EGeneratorState::SavingImage;
-	TArray<uint8> Pixels;
-	Pixels.AddUninitialized(GridWidth * GridHeight);
+	CachedPixels.Empty();
+	CachedPixels.AddUninitialized(GridWidth * GridHeight);
  
 	for (int32 i = 0; i < GridData.Num(); ++i)
 	{
-		Pixels[i] = GridData[i].bHasObstacle ? 0 : 255;
-		// if (!GridData[i].bHasTerrain) Pixels[i] = FColor::Black;
-		// else Pixels[i] = GridData[i].bHasObstacle ? FColor::Red : FColor::White;
+		CachedPixels[i] = GridData[i].bHasObstacle ? 0 : 255;
 	}
  
 	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
 	TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
  
-	if (ImageWrapper.IsValid() && ImageWrapper->SetRaw(Pixels.GetData(), Pixels.GetAllocatedSize(), GridWidth, GridHeight, ERGBFormat::Gray, 8))
+	if (ImageWrapper.IsValid() && ImageWrapper->SetRaw(CachedPixels.GetData(), CachedPixels.GetAllocatedSize(), GridWidth, GridHeight, ERGBFormat::Gray, 8))
 	{
 		FFileHelper::SaveArrayToFile(ImageWrapper->GetCompressed(), *ExportFile);
 	}
+
+	if (bEnableLocalMap)
+	{
+		CurrentState = EGeneratorState::SavingLocalData;
+	}
+	else
+	{
+		CurrentState = EGeneratorState::Completed;
+	}
+}
+
+void APointCloud2DGenerator::SaveLocalDataToPNG(FVector QueryLocation, FRotator QueryRotation, FString LocalMapFilePath)
+{
+	if (CachedPixels.Num() == 0) 
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("No cached pixel data available. Please run StartExport() first."));
+		return;
+	}
+	int32 result_width = FMath::CeilToInt(2.0f * LocalMapParams.sideSize / LocalMapParams.resolution);
+	int32 result_height = FMath::CeilToInt(LocalMapParams.forwardDistance / LocalMapParams.resolution);
+
+	TArray<uint8> result_pixels;
+	result_pixels.AddUninitialized(result_width * result_height);
+
+	FVector GlobalCenter = ScanArea->GetComponentLocation();
+    FVector GlobalExtent = ScanArea->GetScaledBoxExtent();
+
+	float GlobalResCm = Resolution * 100.0f;
+
+	FTransform QueryTransform(QueryRotation, QueryLocation);
+
+	for (int32 y = 0; y < result_height; ++y)
+    {
+        for (int32 x = 0; x < result_width; ++x)
+		{
+			float LocalX = LocalMapParams.forwardDistance * 100.f - (y * LocalMapParams.resolution * 100.f) - (LocalMapParams.resolution * 100.f * 0.5f);
+			float LocalY = (x * LocalMapParams.resolution * 100.f) - (LocalMapParams.sideSize * 100.f) + (LocalMapParams.resolution * 100.f * 0.5f);
+
+			FVector WorldPoint = QueryTransform.TransformPosition(FVector(LocalX, LocalY, 0.0f));
+
+			int32 GlobalX = FMath::FloorToInt((WorldPoint.X - (GlobalCenter.X - GlobalExtent.X)) / GlobalResCm);
+			int32 GlobalY = FMath::FloorToInt((WorldPoint.Y - (GlobalCenter.Y - GlobalExtent.Y)) / GlobalResCm);
+
+			if (GlobalX >= 0 && GlobalX < GridWidth && GlobalY >= 0 && GlobalY < GridHeight)
+			{
+				int32 GlobalIndex = GlobalY * GridWidth + GlobalX;
+				int32 ResultIndex = y * result_width + x;
+				result_pixels[ResultIndex] = CachedPixels[GlobalIndex];
+			}
+			else
+			{
+				int32 ResultIndex = y * result_width + x;
+				result_pixels[ResultIndex] = 255; // Out of bounds, mark as free space
+			}
+		}
+	}
+
+	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
+	TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
+
+	if (ImageWrapper.IsValid() && ImageWrapper->SetRaw(result_pixels.GetData(), result_pixels.GetAllocatedSize(), result_width, result_height, ERGBFormat::Gray, 8))
+	{
+		FFileHelper::SaveArrayToFile(ImageWrapper->GetCompressed(), *LocalMapFilePath);
+	}
+
 	CurrentState = EGeneratorState::Completed;
 }
